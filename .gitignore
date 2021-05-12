@@ -1,0 +1,4 @@
+application/config.php
+application/database.php
+runtime/*
+public/upload/
