@@ -3,12 +3,25 @@
 mb_internal_encoding('UTF-8');
 
 // 变量调试
-function p($data)
+function _P($data,$isEnd = true)
 {
     echo '<pre>';
     print_r($data);
     echo '</pre>';
+    if($isEnd) exit();
 }
+
+function _A($s=true,$m="success",$d=array()){
+	header("Access-Control-Allow-Origin:*");
+	header("Access-Control-Allow-Headers:X-Requested-With");
+	header('Content-type: text/json');
+	exit(json_encode(array(
+		's'	=>	$s,
+		'm'	=>	$m,
+		'd'	=>	$d
+	)));
+}
+
 
 // 获取已经安装的模块
 function get_app($name=''){

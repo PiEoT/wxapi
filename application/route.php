@@ -11,6 +11,5 @@
 
 \think\Route::pattern([
     'id' => '\d+',
-]);
-\ebcms\Route::route();
+]); 
 return [];

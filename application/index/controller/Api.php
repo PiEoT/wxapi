@@ -1,294 +1,90 @@
 <?php
 namespace app\index\controller;
 use think\Controller;
+use Wechat\Wechat;
+
 class Api extends Controller
 {
+    private $wx = null;
+    private $conf = null;
     
-    //学术交流 列表
-    public function academicList(){
-    	$where = array('status'=>1);
-    	
-    	$query = input(); 
-    	$page = empty($query['page'])?1:$query['page'];
-    	$pageSize = empty($query['pageSize'])?10:$query['pageSize'];
-    	
-		$rs = \think\Db::name('m_academic') 
-				->where($where)
-				->page($page)
-				->order('weight','desc')
-				->limit($pageSize)
-				->select();
-				
-		$ct = \think\Db::name('m_academic')
-				->where($where)
-				->count();
-		
-		$pageParm = array(
-			'total'	=>	$ct,
-			'page'	=>	$page,
-			'pageSize'	=>	$pageSize,
-			'totalPage'	=>	ceil($ct/$pageSize),
-		);
-		
-		$this->_A(true,'success',array(
-			'list'	=>	$rs,
-			'page'	=>	$pageParm,
-		));
+    public function _initialize(){
+		$this->conf = config('wechat');
+		$this->wx = new Wechat($this->conf);
+	}
+    
+     
+	function get_Token(){ 
+		$this->wx->getMenu();
+		$token = $this->wx->access_token; 
+		if(empty($token)){
+			_A(false,'getToken Error');
+		}
+		_A(true,'OK',$token);
 	}
 	
-	//学术交流 详情
-	public function academicDetial(){
-		$id = input('id');
-		if(empty($id)){
-			$this->_A(false,'parms error');
+	function get_JSAPI_Config(){	
+		$url =  $_POST['callback'];
+		$jsSign = $this->wx->getJsSign($url);
+		$jsSign['jsapi_ticket'] = $this->wx->jsapi_ticket;
+		_A(true,'OK',$jsSign);
+	}
+	
+	/**
+	* 代理授权接口
+	* 代理授权登陆 需要传递授权成功回调地址 callback 为 urlencode 编码
+	* http://wx.zhijin101.com/api.php/wx/oauth?callback=url
+	* url = urlencode(http://wx.zhijin101.com);
+	* 授权成功后 会把得到的用户数据返回给 callback地址 
+	* 返回格式 base64_encode(json_encode(array()));
+	* callback页面可通过 $_POST['data'] 获取到用户数据
+	* $userdata = json_decode(base64_decode($_POST['data']),true);
+	* @return
+	*/
+	function oauth(){
+		$callback = empty($_GET['callback'])?'':$_GET['callback']; 
+		$type =  empty($_GET['type']) ? 'snsapi_base' : 'snsapi_userinfo' ;
+		$url = 'http://wx.zhijin101.com/api.php/wx/oautback?callback='.$callback.'&type='.$type;
+		$link = $this->wx->getOauthRedirect($url,'',$type);
+		echo '<script language="javascript"> location.href=" '.$link.'";</script>';
+		exit();
+	}
+	
+	function oautback(){
+		$callback = urldecode($_GET['callback']);
+		$AccessToken = $this->wx->getOauthAccessToken();
+		if(empty($AccessToken)){
+			_A(false,'get OauthAccessToken Error');
 		}
-		$rs = \think\Db::name('m_academic') 
-				->where(array('id'=>$id))
-				->find();
-		if(!empty($rs)){
-			$this->_A(true,'success',$rs);
+		_P($AccessToken,0);
+		_P($_GET);
+		if(empty($_GET['type'])||$_GET['type']!='snsapi_userinfo'){
+			if(!empty($callback)){
+				$data = array(
+					'openid'	=>	$AccessToken['openid'],
+					'type'		=>	'base',
+				);
+				$data =base64_encode(json_encode($data));
+				$this->data = $data;
+				$this->action = $callback;
+				$this->display('wx/oauthback.html');
+			}else{
+				$this->_D($AccessToke);
+			}
+		}
+		$userdata = $this->wx->getOauthUserinfo($AccessToken['access_token'],$AccessToken['openid']);
+		if(empty($userdata)){
+			_A(false,'get UserInfo Error');
+		}  
+		if(!empty($callback)){
+			$data = $userdata;
+			$data['type'] = 'userinfo';
+			$data = base64_encode(json_encode($data));
+			$this->data = $data;
+			$this->action = $callback;
+			$this->display('wx/oauthback.html');
 		}else{
-			$this->_A(false,'data empty');
+			$this->_D($userdata);
 		}
 	}
-	
-	
-    //试剂盒 列表
-    public function kitsList(){
-    	$where = array('status'=>1);
-    	
-    	$query = input(); 
-    	$page = empty($query['page'])?1:$query['page'];
-    	$pageSize = empty($query['pageSize'])?10:$query['pageSize'];
-    	
-		$rs = \think\Db::name('m_kits') 
-				->where($where)
-				->page($page)
-				->order('weight','desc')
-				->limit($pageSize)
-				->select();
-				
-		$ct = \think\Db::name('m_kits')
-				->where($where)
-				->count();
-		
-		$pageParm = array(
-			'total'	=>	$ct,
-			'page'	=>	$page,
-			'pageSize'	=>	$pageSize,
-			'totalPage'	=>	ceil($ct/$pageSize),
-		);
-		
-		$this->_A(true,'success',array(
-			'list'	=>	$rs,
-			'page'	=>	$pageParm,
-		));
-	}
-	
-	//试剂盒 详情
-	public function kitsDetial(){
-		$id = input('id');
-		if(empty($id)){
-			$this->_A(false,'parms error');
-		}
-		$rs = \think\Db::name('m_kits') 
-				->where(array('id'=>$id))
-				->find();
-		if(!empty($rs)){
-			$this->_A(true,'success',$rs);
-		}else{
-			$this->_A(false,'data empty');
-		}
-	}
-	
-	
-    //招聘 列表
-    public function zhaopinList(){
-    	$where = array('status'=>1);
-    	
-    	$query = input(); 
-    	$page = empty($query['page'])?1:$query['page'];
-    	$pageSize = empty($query['pageSize'])?10:$query['pageSize'];
-    	
-		$rs = \think\Db::name('m_zhaopin') 
-				->where($where)
-				->page($page)
-				->order('weight','desc')
-				->limit($pageSize)
-				->select();
-				
-		$ct = \think\Db::name('m_zhaopin')
-				->where($where)
-				->count();
-		
-		$pageParm = array(
-			'total'	=>	$ct,
-			'page'	=>	$page,
-			'pageSize'	=>	$pageSize,
-			'totalPage'	=>	ceil($ct/$pageSize),
-		);
-		
-		$this->_A(true,'success',array(
-			'list'	=>	$rs,
-			'page'	=>	$pageParm,
-		));
-	}
-	
-	//招聘 详情
-	public function zhaopinDetial(){
-		$id = input('id');
-		if(empty($id)){
-			$this->_A(false,'parms error');
-		}
-		$rs = \think\Db::name('m_zhaopin') 
-				->where(array('id'=>$id))
-				->find();
-		if(!empty($rs)){
-			$this->_A(true,'success',$rs);
-		}else{
-			$this->_A(false,'data empty');
-		}
-	}
-	
-	
-    //产品 列表
-    public function machineList(){
-    	$where = array('status'=>1);
-    	
-    	$query = input(); 
-    	$page = empty($query['page'])?1:$query['page'];
-    	$pageSize = empty($query['pageSize'])?10:$query['pageSize']; 
-		$rs = \think\Db::name('m_machine') 
-				->where($where)
-				->page($page)
-				->limit($pageSize)
-				->order('weight','desc')
-				->select();
-				
-		$ct = \think\Db::name('m_machine')
-				->where($where)
-				->count();
-		
-		$pageParm = array(
-			'total'	=>	$ct,
-			'page'	=>	$page,
-			'pageSize'	=>	$pageSize,
-			'totalPage'	=>	ceil($ct/$pageSize),
-		);
-		
-		$this->_A(true,'success',array(
-			'list'	=>	$rs,
-			'page'	=>	$pageParm,
-		));
-	}
-	
-	//产品 详情
-	public function machineDetial(){
-		$id = input('id');
-		if(empty($id)){
-			$this->_A(false,'parms error');
-		}
-		$rs = \think\Db::name('m_machine') 
-				->where(array('id'=>$id))
-				->find();
-		if(!empty($rs)){
-			$this->_A(true,'success',$rs);
-		}else{
-			$this->_A(false,'data empty');
-		}
-	}
-	
-	
-    //公司新闻 列表
-    public function newsList(){
-    	$where = array('status'=>1);
-    	
-    	$query = input(); 
-    	$page = empty($query['page'])?1:$query['page'];
-    	$pageSize = empty($query['pageSize'])?10:$query['pageSize']; 
-		$rs = \think\Db::name('m_news') 
-				->where($where)
-				->page($page)
-				->limit($pageSize)
-				->order('weight','desc')
-				->select();
-				
-		$ct = \think\Db::name('m_news')
-				->where($where)
-				->count();
-		
-		$pageParm = array(
-			'total'	=>	$ct,
-			'page'	=>	$page,
-			'pageSize'	=>	$pageSize,
-			'totalPage'	=>	ceil($ct/$pageSize),
-		);
-		
-		$this->_A(true,'success',array(
-			'list'	=>	$rs,
-			'page'	=>	$pageParm,
-		));
-	}
-	
-	//公司新闻 详情
-	public function newsDetial(){
-		$id = input('id');
-		if(empty($id)){
-			$this->_A(false,'parms error');
-		}
-		$rs = \think\Db::name('m_news') 
-				->where(array('id'=>$id))
-				->find();
-		if(!empty($rs)){
-			$this->_A(true,'success',$rs);
-		}else{
-			$this->_A(false,'data empty');
-		}
-	}
-	
-	
-	public function saveService(){
-		if (!(request() -> isPost())){
-			$this->_A(false,'request error');
-		}
-		$dat = input();
-		$dat['type'] = empty($dat['type'])?1:$dat['type'];
-		if(empty($dat['username'])){
-			$this->_A(false,'username can not empty');
-		}
-		if(empty($dat['phone'])){
-			$this->_A(false,'phone can not empty');
-		}
-		if(!preg_match("/^1[34578]{1}\d{9}$/",$dat['phone'])){  
-		    $this->_A(false,'phone input error');
-		}
-		if(empty($dat['company'])){
-			$this->_A(false,'company can not empty');
-		} 
-		if(empty($dat['question'])){
-			$this->_A(false,'question can not empty');
-		}
-		$tm = date('Y-m-d',time());
-		$dat['created'] = $tm;
-		$dat['modified'] = $tm;
-		$rs = \think\Db::name('m_service') -> insert($dat);
-		if(!empty($rs)){
-			$this->_A(true,'success',$rs);
-		}else{
-			$this->_A(false,'data empty');
-		}
-	}
-	
-	//JSON return 
-	public function _A($s=true,$m="success",$d=array()){
-		header("Access-Control-Allow-Origin:*");
-    	header("Access-Control-Allow-Headers:X-Requested-With");
-		header('Content-type: text/json');
-		exit(json_encode(array(
-			's'	=>	$s,
-			'm'	=>	$m,
-			'd'	=>	$d
-		)));
-	}
-
 }
