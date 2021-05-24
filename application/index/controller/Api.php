@@ -1,7 +1,7 @@
 <?php
 namespace app\index\controller;
 use think\Controller;
-use Wechat\Wechat;
+use wechat\Wechat;
 
 class Api extends Controller
 {
