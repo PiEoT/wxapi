@@ -1,6 +1,6 @@
 <?php
 
-namespace Wechat;
+namespace wechat;
 
 class Wechat
 {
