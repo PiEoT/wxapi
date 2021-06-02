@@ -51,13 +51,13 @@ class Api extends Controller
 	}
 	
 	function oautback(){
+		_P($_GET);
 		$callback = urldecode($_GET['callback']);
 		$AccessToken = $this->wx->getOauthAccessToken();
 		if(empty($AccessToken)){
 			_A(false,'get OauthAccessToken Error');
 		}
 		_P($AccessToken,0);
-		_P($_GET);
 		if(empty($_GET['type'])||$_GET['type']!='snsapi_userinfo'){
 			if(!empty($callback)){
 				$data = array(
