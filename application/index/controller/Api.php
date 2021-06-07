@@ -44,7 +44,7 @@ class Api extends Controller
 	function oauth(){
 		$callback = empty($_GET['callback'])?'':$_GET['callback']; 
 		$type =  empty($_GET['type']) ? 'snsapi_base' : 'snsapi_userinfo' ;
-		$url = 'http://wx.zhijin101.com/api.php/wx/oautback?callback='.$callback.'&type='.$type;
+		$url = 'http://wx.zhijin101.com/index.php/index/api/oautback?callback='.$callback.'&type='.$type;
 		$link = $this->wx->getOauthRedirect($url,'',$type);
 		echo '<script language="javascript"> location.href=" '.$link.'";</script>';
 		exit();
